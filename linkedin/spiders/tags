@@ -1,0 +1,23 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+InitSpider	linkedin_spider.py	/^from scrapy.spiders.init import InitSpider$/;"	i
+Keys	linkedin_spider.py	/^from selenium.webdriver.common.keys import Keys$/;"	i
+LinkedinSpider	linkedin_spider.py	/^class LinkedinSpider(InitSpider):$/;"	c
+Request	linkedin_spider.py	/^from scrapy.http import Request$/;"	i
+__init__	linkedin_spider.py	/^    def __init__(self, login, password, perfil):$/;"	m	class:LinkedinSpider
+allowed_domains	linkedin_spider.py	/^    allowed_domains = ["linkedin.com"]$/;"	v	class:LinkedinSpider
+contact_accomp	linkedin_spider.py	/^    contact_accomp = {}$/;"	v	class:LinkedinSpider
+contact_info	linkedin_spider.py	/^    contact_info = {}$/;"	v	class:LinkedinSpider
+init_request	linkedin_spider.py	/^    def init_request(self):$/;"	m	class:LinkedinSpider
+json	linkedin_spider.py	/^import json$/;"	i
+name	linkedin_spider.py	/^    name = "linkedin_spider"$/;"	v	class:LinkedinSpider
+parse	linkedin_spider.py	/^    def parse(self, response):$/;"	m	class:LinkedinSpider
+project_opened	.ropeproject/config.py	/^def project_opened(project):$/;"	f
+scrapy	linkedin_spider.py	/^import scrapy$/;"	i
+set_prefs	.ropeproject/config.py	/^def set_prefs(prefs):$/;"	f
+time	linkedin_spider.py	/^import time$/;"	i
+webdriver	linkedin_spider.py	/^from selenium import webdriver$/;"	i
