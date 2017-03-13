@@ -122,6 +122,7 @@ class LinkedinSpider(InitSpider):
 
         skills = self.get_elements(self.driver, "xpath",
             '//li[contains(@class, "pv-skill-entity--featured")]/div/div/a/div/span[1]')
+
         for skl in skills:
             self.contact_info['skills'].append(skl.text)
 
@@ -134,9 +135,10 @@ class LinkedinSpider(InitSpider):
         # CONQUISTAS
 
         element = self.get_element(self.driver, "xpath",
-            '//section[contains(@class, "pv-profile-section")]\
-                                   /section[3]/div/div[2]/button')
-        element.click() # Click no 'visualizar mais idiomas'
+            '//section[contains(@class, "languages")]\
+                                   /div/div[2]/button')
+        element.click()
+        time.sleep(1)
 
         idiomas =  self.get_elements(self.driver, "xpath",
             '//section[contains(@class, "languages")]/div/div/ul/li')
@@ -146,9 +148,9 @@ class LinkedinSpider(InitSpider):
         for i in idiomas:
             self.contact_info['idiomas'].append(i.text)
 
-#        print "Skills: \n"
-#        for skl in self.contact_info['skills']:
-#            print skl
+       # print "Skills: \n"
+       # for skl in self.contact_info['skills']:
+       #     print skl
         print "------------------\n"
         print "JSON: " + json.dumps(self.contact_info)
         print "------------------\n\n\n"
