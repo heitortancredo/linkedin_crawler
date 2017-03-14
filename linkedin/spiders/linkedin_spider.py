@@ -27,15 +27,16 @@ class LinkedinSpider(InitSpider):
     def __init__(self, login, password, perfil):
         self.login = login
         self.password = password
-        self.perfil_url = "https://www.linkedin.com/in/%s" % perfil
+        self.perfil_url = "https://www.linkedin.com/%s" % perfil
 
     def init_request(self):
+       # self.driver = webdriver.PhantomJS(service_args=['--load-images=no'])
         self.driver = webdriver.PhantomJS()
         self.driver.set_window_size(1920, 1080)
 
-#        self.driver.maximize_window()
+       # self.driver.maximize_window()
 
-#        self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
+       # self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
         self.driver.get("http://www.linkedin.com/uas/login")
 
         btn = self.get_element(self.driver, "name", "signin")
@@ -46,8 +47,8 @@ class LinkedinSpider(InitSpider):
             if login and password is not None:
                 login.send_keys(self.login)
                 password.send_keys(self.password)
-                time.sleep(1)
                 btn.click()
+                time.sleep(1)
 
         yield Request(self.perfil_url, cookies=self.driver.get_cookies(),
                       callback=self.parse)
@@ -56,6 +57,8 @@ class LinkedinSpider(InitSpider):
         self.driver.get(response.url)
         # Como eh assincrono preciso esperar o carregamento da pagina
         time.sleep(5)
+
+        self.contact_info['infos'] = {}
 
         elem = self.get_element(self.driver, "class_name",
                                 "contact-see-more-less")
@@ -74,18 +77,18 @@ class LinkedinSpider(InitSpider):
 
             for k, v in zip(infos_label, infos_value):
                 if k and v:
-                    self.contact_info[k.text.lower()] = v.text
+                    self.contact_info['infos'][k.text.lower()] = v.text
 
-        self.contact_info['nome'] = self.get_element(self.driver, "xpath",
+        self.contact_info['infos']['nome'] = self.get_element(self.driver, "xpath",
             '//h1[contains(@class, "pv-top-card-section__name")]').text
 
-        self.contact_info['cargo'] = self.get_element(self.driver, "xpath",
+        self.contact_info['infos']['cargo'] = self.get_element(self.driver, "xpath",
             '//h2[contains(@class, "pv-top-card-section__headline")]').text
 
-        self.contact_info['empresa'] = self.get_element(self.driver, "xpath",
+        self.contact_info['infos']['empresa'] = self.get_element(self.driver, "xpath",
             '//h3[contains(@class, "pv-top-card-section__company")]').text
 
-        self.contact_info['local'] = self.get_element(self.driver, "xpath",
+        self.contact_info['infos']['local'] = self.get_element(self.driver, "xpath",
             '//h3[contains(@class, "pv-top-card-section__location")]').text
 
 
@@ -94,16 +97,15 @@ class LinkedinSpider(InitSpider):
 #                                "truncate-multiline--button")
 #        if elem is not None:
 #            elem.click()
-#            time.sleep(1)
 #
-#            self.contact_info['resumo'] = self.get_element(
+#            self.contact_info['infos']['resumo'] = self.get_element(
 #                self.driver, "class_name",
 #                "pv-top-card-section__summary"
 #            ).text
 # ------[ FIM do bloco para pegar o resumo]
 
 #       Pegando informacoes da secao experiencia
-        self.contact_info['in_empresa'] = self.get_element(self.driver, "xpath",
+        self.contact_info['infos']['in_empresa'] = self.get_element(self.driver, "xpath",
             '//*[contains(@class, \
             "pv-profile-section__card-item position-entity")]/a'
         ).get_attribute('href')
@@ -113,44 +115,51 @@ class LinkedinSpider(InitSpider):
 #        self.driver.find_element_by_xpath('//body').send_keys(Keys.CONTROL+Keys.END)
 
         # SKILLZ
-
-        element = self.get_element(self.driver, "xpath",
-            '//div[contains(@class, "profile-detail")]/div[5]/section/button')
-        element.click() # Click 'Visualizar mais' skills
-
         self.contact_info['skills'] = []
 
-        skills = self.get_elements(self.driver, "xpath",
-            '//li[contains(@class, "pv-skill-entity--featured")]/div/div/a/div/span[1]')
+        elem = self.get_element(self.driver, "xpath",
+            '//div[contains(@class, "profile-detail")]/div[5]/section/button')
+        if elem is not None:
+            elem.click()
 
-        for skl in skills:
-            self.contact_info['skills'].append(skl.text)
+            skills = self.get_elements(self.driver, "xpath",
+                '//li[contains(@class, "pv-skill-entity--featured")]/div/div/a/div/span[1]')
 
-        # Linkedin muda o padrao do xpath das skills
-        skills = self.get_elements(self.driver, "xpath",
-            '//li[contains(@class, "pv-skill-entity--featured")]/div/div/div/span')
-        for skl in skills:
-            self.contact_info['skills'].append(skl.text)
+            for skl in skills:
+                self.contact_info['skills'].append(skl.text)
+
+            # Linkedin muda o padrao do xpath das skills
+            skills = self.get_elements(self.driver, "xpath",
+                '//li[contains(@class, "pv-skill-entity--featured")]/div/div/div/span')
+            for skl in skills:
+                self.contact_info['skills'].append(skl.text)
 
         # CONQUISTAS
-
-        element = self.get_element(self.driver, "xpath",
-            '//section[contains(@class, "languages")]\
-                                   /div/div[2]/button')
-        element.click()
-        time.sleep(1)
-
-        idiomas =  self.get_elements(self.driver, "xpath",
-            '//section[contains(@class, "languages")]/div/div/ul/li')
-
         self.contact_info['idiomas'] = []
 
-        for i in idiomas:
-            self.contact_info['idiomas'].append(i.text)
+        elem = self.get_element(self.driver, "xpath",
+            '//section[contains(@class, "languages")]\
+                                   /div/div[2]/button')
+        if elem is not None:
+            elem.click()
+            time.sleep(1)
 
-       # print "Skills: \n"
-       # for skl in self.contact_info['skills']:
-       #     print skl
+            idiomas =  self.get_elements(self.driver, "xpath",
+                '//section[contains(@class, "languages")]/div/div/ul/li')
+
+            for i in idiomas:
+                self.contact_info['idiomas'].append(i.text)
+
+        print "\nContact Info:\n"
+        for i in self.contact_info['infos']:
+            print self.contact_info['infos'][i]
+
+        print "\nLanguages:\n"
+        for l in self.contact_info['idiomas']:
+            print l
+        print "\nSkills: \n"
+        for skl in self.contact_info['skills']:
+            print skl
         print "------------------\n"
         print "JSON: " + json.dumps(self.contact_info)
         print "------------------\n\n\n"
