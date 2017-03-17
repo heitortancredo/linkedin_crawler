@@ -2,12 +2,13 @@
 # Use Ex:
 # scrapy crawl linkedin_spider -a login="yourmail@mail.com"
 #                               -a password="yourpassword" -a perfil=ppizarro
-import time
-import json
-
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
 
 from scrapy.spiders.init import InitSpider
 from scrapy.http import Request
@@ -28,8 +29,17 @@ class LinkedinSpider(InitSpider):
         self.driver = webdriver.PhantomJS()
         self.driver.set_window_size(1920, 1080)
 
-        # self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
+       # self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
         self.driver.get("http://www.linkedin.com/uas/login")
+
+        try:
+            btn = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.NAME, "signin"))
+            )
+        except TimeoutException:
+            self.logger.critical("Nao foi possivel efetuar o login")
+            self.driver.close()
+            yield self.contact_info
 
         btn = self.get_element(self.driver, "name", "signin")
 
@@ -40,7 +50,6 @@ class LinkedinSpider(InitSpider):
                 login.send_keys(self.login)
                 password.send_keys(self.password)
                 btn.click()
-                time.sleep(1)
 
         yield Request(self.perfil_url, cookies=self.driver.get_cookies(),
                       callback=self.parse)
@@ -49,14 +58,35 @@ class LinkedinSpider(InitSpider):
 
         self.driver.get(response.url)
         # Como eh assincrono preciso esperar o carregamento da pagina
-        time.sleep(5)
+
+        try:
+            elem = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.XPATH,
+                                                '//h2[contains(@class,\
+                                                "pv-profile-section__card-heading")]'))
+            )
+        except TimeoutException:
+            self.logger.critical("Nao foi possivel carregar a pagina")
+            self.driver.close()
+            yield self.contact_info
 
         self.contact_info['infos'] = {}
+        self.contact_info['seguindo'] = {}
+        self.contact_info['skills'] = []
+        self.contact_info['idiomas'] = []
 
         elem = self.get_element(self.driver, "class_name",
                                 "contact-see-more-less")
         if elem is not None:
             elem.click()
+
+            # Foto perfil
+
+            elem = self.get_element(self.driver, "class_name",
+                                    "pv-top-card-section__image")
+            if elem is not None:
+                self.contact_info['infos']['foto'] = elem.get_attribute("src")
+
             # linkedin perfil
             self.contact_info['infos']['perfil_in'] = self.get_element(self.driver, "xpath",
                                  '//section[contains(@class, "ci-vanity-url")]/div').text
@@ -112,7 +142,17 @@ class LinkedinSpider(InitSpider):
 
         self.contact_info['infos']['empresa'] = self.get_element(self.driver, "xpath",
                                                                  '//h3[contains(@class, "pv-top-card-section__company")]').text
+        """
+        # tentando buscar o historico das empresas que ja trabalhou
+        self.contact_info['infos']['empresas'] = {}
+        elem = self.get_elements(self.driver, "xpath",
+                                 '//li[contains(@class, "position-entity")]')
 
+        for e in elem:
+            if e is not None:
+                self.contact_info['infos']['empresas'] = [e.text]
+
+        """
         self.contact_info['infos']['local'] = self.get_element(self.driver, "xpath",
                                                                '//h3[contains(@class, "pv-top-card-section__location")]').text
 
@@ -136,11 +176,10 @@ class LinkedinSpider(InitSpider):
             self.contact_info['infos']['in_empresa'] = e.get_attribute("href")
 
         # Scroll Down
-        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        #        self.driver.find_element_by_xpath('//body').send_keys(Keys.CONTROL+Keys.END)
+        self.scrolldown(self.driver)
+        # self.driver.find_element_by_xpath('//body').send_keys(Keys.CONTROL+Keys.END)
 
         # SKILLZ
-        self.contact_info['skills'] = []
 
         elem = self.get_element(self.driver, "xpath",
                                 '//div[contains(@class, "profile-detail")]/div[5]/section/button')
@@ -160,20 +199,78 @@ class LinkedinSpider(InitSpider):
                 self.contact_info['skills'].append(skl.text)
 
         # CONQUISTAS
-        self.contact_info['idiomas'] = []
 
         elem = self.get_element(self.driver, "xpath",
                                 '//section[contains(@class, "languages")]\
                                 /div/div[2]/button')
         if elem is not None:
             elem.click()
-            time.sleep(1)
-
+            try:
+                elem = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located
+                    ((By.XPATH, '//section[contains(@class, "languages")]/div/div/ul/li[2]'))
+                )
+            except TimeoutException:
+                pass
             idiomas =  self.get_elements(self.driver, "xpath",
                                          '//section[contains(@class, "languages")]/div/div/ul/li')
 
             for i in idiomas:
                 self.contact_info['idiomas'].append(i.text)
+
+        # SEGUINDO
+        self.contact_info['seguindo']['pessoas'] = []
+
+        elem = self.get_element(self.driver, "xpath",
+                                '//a[contains(@href, "/connections/")]/h2')
+        if elem is not None:
+            elem.click()
+            try:
+                elem = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located
+                    ((By.CLASS_NAME, 'profile-item__name--has-hover'))
+                )
+            except TimeoutException:
+                pass
+
+            # Pessoas
+            elem = self.get_elements(self.driver, "xpath", '//span[contains(@class,\
+                                     "profile-item__name--has-hover")]')
+
+            for e in elem:
+                if e is not None:
+                    self.contact_info['seguindo']['pessoas'].append(e.text)
+            # TODO: fazer scrolldown na subjanela para pegar mais pessoas
+
+        # Empresas
+        self.contact_info['seguindo']['empresas'] = []
+
+        # scrolldown
+        self.scrolldown(self.driver)
+
+        elem = self.get_element(self.driver, "xpath", '//a[contains(@href,\
+                                                 "/interests/")]/span')
+        if elem is not None:
+            elem.click()
+            # elem = self.driver.find_element_by_xpath(
+            #    '//a[contains(@href, "/interests/companies/")]')
+            #elem.click()
+            try:
+                elem = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located
+                    ((By.XPATH,
+                      '//span[contains(@class, "pv-entity__summary-title--has-hover")]'))
+                )
+            except TimeoutException:
+                pass
+            elem = self.get_elements(self.driver, "xpath", '//span[contains(@class,\
+                                    "pv-entity__summary-title--has-hover")]')
+
+            for e in elem:
+                if e is not None:
+                    self.contact_info['seguindo']['empresas'].append(e.text)
+            # TODO: conseguir pegar apenas as empresas (clicar na secao empresas
+            # da subjanela)
 
         print "\nContact Info:\n"
         for i in self.contact_info['infos']:
@@ -220,3 +317,6 @@ class LinkedinSpider(InitSpider):
         except NoSuchElementException:
             self.logger.error(xpath_string)
             return None
+
+    def scrolldown(self, web_driver):
+        web_driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
