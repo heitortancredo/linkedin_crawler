@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-import time
-
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
 
 from scrapy.spiders.init import InitSpider
 from scrapy.http import Request
@@ -29,6 +32,16 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         # self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
         self.driver.get("http://www.linkedin.com/uas/login")
 
+        try:
+            btn = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.NAME, "signin"))
+            )
+        except TimeoutException:
+            self.logger.critical("Nao foi possivel efetuar o login")
+            self.driver.quit()
+            yield self.company_info
+
+
         btn = self.get_element(self.driver, "name", "signin")
 
         if btn is not None:
@@ -38,7 +51,6 @@ class CompanyLinkedinSpiderSpider(InitSpider):
                 login.send_keys(self.login)
                 password.send_keys(self.password)
                 btn.click()
-                time.sleep(1)
 
         yield Request(self.perfil_url, cookies=self.driver.get_cookies(),
                       callback=self.parse)
@@ -47,7 +59,21 @@ class CompanyLinkedinSpiderSpider(InitSpider):
 
         self.driver.get(response.url)
         # Como eh assincrono preciso esperar o carregamento da pagina
+        try:
+            elem = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "org-similar-companies-module__list-item"))
+            )
+        except TimeoutException:
+            self.logger.critical("Nao foi possivel carregar a pagina")
+            self.driver.quit()
+            yield self.company_info
+
         self.scrolldown(self.driver)
+
+        elem = self.get_element(self.driver, "id",
+                                "org-about-company-module__show-details-btn")
+        if elem is not None:
+            elem.click()
 
         elem = self.get_element(self.driver, "xpath",
                                        '//img[contains(@class, "org-top-card-module__logo")]')
@@ -119,13 +145,22 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         func_url = "https://www.linkedin.com/search/results/people/?facetCurrentCompany=%s" % self.perfil
 
         self.driver.get(func_url)
-        time.sleep(3) # FIXME: WebDriver explicit wait?
+#        elem = self.get_element(self.driver, "xpath", '//span[contains(@class,\
+#                                "org-company-employees-snackbar__see-all-employees-link")]/a')
+#        elem.click()
 
-       # print self.driver.page_source.encode('utf-8')
+        try:
+            elem = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.XPATH,
+                                                '//div[contains(@class,\
+                                                "search-results")]/div/div/ul/li'))
+            )
+        except TimeoutException:
+            self.logger.critical("Nao foi possivel carregar a pagina de funcionarios")
+            self.driver.quit()
+            yield self.company_info
 
         elem = self.get_elements(self.driver, "xpath",
-#        elem = self.driver.find_elements_by_xpath(
-#            'li[contains(@class, "search-result__occluded-item")]')
             '//div[contains(@class, "search-results")]/div/div/ul/li')
 
         for e in elem:
@@ -143,8 +178,12 @@ class CompanyLinkedinSpiderSpider(InitSpider):
                                      "search-result__info")]/p').text
             self.company_info['funcionarios'][nome].append(cargo)
 
+            # TODO: navegar na paginacao dos resultados para pegar os demais
+            # funcionarios, como estah eh feito o crawler apenas da primeira
+            # pagina de resultados
 
-        self.driver.close()
+
+        self.driver.quit()
         yield self.company_info
 
 
@@ -159,6 +198,8 @@ class CompanyLinkedinSpiderSpider(InitSpider):
                 return web_driver.find_element_by_xpath(xpath_string)
             if type_xpath == "name":
                 return web_driver.find_element_by_name(xpath_string)
+            if type_xpath == "id":
+                return web_driver.find_element_by_id(xpath_string)
 
         except NoSuchElementException:
             self.logger.error(xpath_string)
@@ -172,6 +213,8 @@ class CompanyLinkedinSpiderSpider(InitSpider):
                 return web_driver.find_elements_by_xpath(xpath_string)
             if type_xpath == "name":
                 return web_driver.find_elements_by_name(xpath_string)
+            if type_xpath == "id":
+                return web_driver.find_elements_by_id(xpath_string)
 
         except NoSuchElementException:
             self.logger.error(xpath_string)
