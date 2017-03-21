@@ -11,13 +11,13 @@ from scrapy.spiders.init import InitSpider
 from scrapy.http import Request
 
 
-class CompanyLinkedinSpiderSpider(InitSpider):
+class CompanyLinkedinSpider(InitSpider):
     name = "company_linkedin_spider"
     allowed_domains = ["linkedin.com"]
 
     company_info = {}
-    company_info["semelhantes"] = {}
-    company_info["funcionarios"] = {}
+    company_info["relates"] = {}
+    company_info["company_employees"] = {}
 
     def __init__(self, login, password, perfil):
         self.login = login
@@ -83,32 +83,32 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         elem = self.get_element(self.driver, "class_name",
                                        "org-top-card-module__name")
         if elem is not None:
-            self.company_info["nome"] = elem.text
+            self.company_info["name"] = elem.text
 
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-company-module__specialities")
         if elem is not None:
-            self.company_info["espcializacoes"] = elem.text
+            self.company_info["specialities"] = elem.text
 
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-company-module__staff-count-range")
         if elem is not None:
-            self.company_info["tamanho_empresa"] = elem.text
+            self.company_info["employees"] = elem.text
 
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-company-module__industry")
         if elem is not None:
-            self.company_info["setor"] = elem.text
+            self.company_info["category_industry"] = elem.text
 
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-company-module__founded-year")
         if elem is not None:
-            self.company_info["ano_fundacao"] = elem.text
+            self.company_info["start"] = elem.text
 
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-company-module__headquarter")
         if elem is not None:
-            self.company_info["sede"] = elem.text
+            self.company_info["address_city"] = elem.text
 
         elem = self.get_element(self.driver, "xpath",
                                 '//dd[contains(@class,\
@@ -119,7 +119,7 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         elem = self.get_element(self.driver, "class_name",
                                 "org-about-us-organization-description__text")
         if elem is not None:
-            self.company_info["sobre_nos"] = elem.text
+            self.company_info["description"] = elem.text
 
 
         # SEMELHANTES
@@ -129,16 +129,16 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         for e in elem:
             nome = self.get_element(e, "xpath",
                                    './/h3[contains(@class, "org-company-card__company-name")]').text
-            self.company_info[ 'semelhantes'][nome] = []
+            self.company_info[ 'relates'][nome] = []
             url = self.get_element(e, "xpath",
                                    './/a[contains(@class, "company-name-link")]').get_attribute("href")
-            self.company_info['semelhantes'][nome].append(url)
+            self.company_info['relates'][nome].append(url)
             tam_empresa = self.get_element(e, "xpath",
                                    './/dd[contains(@class, "company-size")]').text
-            self.company_info['semelhantes'][nome].append(tam_empresa)
+            self.company_info['relates'][nome].append(tam_empresa)
             setor = self.get_element(e, "xpath",
                                    './/dd[contains(@class, "company-industry")]').text
-            self.company_info['semelhantes'][nome].append(setor)
+            self.company_info['relates'][nome].append(setor)
 
         # FUNCIONARIOS
 
@@ -166,17 +166,17 @@ class CompanyLinkedinSpiderSpider(InitSpider):
         for e in elem:
             nome = self.get_element(e, "xpath",
                                    './/span[contains(@class, "actor-name")]').text
-            self.company_info['funcionarios'][nome] = []
+            self.company_info['company_employees'][nome] = []
 
             in_profile = self.get_element(e, "xpath",
                                    './/div[contains(@class,\
                                           "search-result__info")]/a').get_attribute("href")
-            self.company_info['funcionarios'][nome].append(in_profile)
+            self.company_info['company_employees'][nome].append(in_profile)
 
             cargo = self.get_element(e, "xpath",
                                    './/div[contains(@class,\
                                      "search-result__info")]/p').text
-            self.company_info['funcionarios'][nome].append(cargo)
+            self.company_info['company_employees'][nome].append(cargo)
 
             # TODO: navegar na paginacao dos resultados para pegar os demais
             # funcionarios, como estah eh feito o crawler apenas da primeira
